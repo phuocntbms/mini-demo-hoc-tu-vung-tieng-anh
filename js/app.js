@@ -12,17 +12,61 @@ const App = {
         // Set up routing
         this.setupRouting();
 
-        // Show initial page based on auth state
-        if (Auth.currentUser) {
-            this.showDashboard();
-        } else {
-            Auth.showLoginForm();
-        }
+        // Start URL monitoring
+        this.startUrlMonitoring();
+
+        // Handle initial route
+        const hash = window.location.hash.slice(1) || 'dashboard';
+        this.handleRoute(hash);
+    },
+
+    // Start URL monitoring
+    startUrlMonitoring() {
+        let previousUrl = window.location.href;
+        
+        // Function to check URL changes
+        const checkUrl = () => {
+            const currentUrl = window.location.href;
+            if (currentUrl !== previousUrl) {
+                console.log('URL changed:', currentUrl);
+                previousUrl = currentUrl;
+                // Reload data when URL changes
+                // this.reloadData();
+                window.location.reload();
+            }
+            // Continue monitoring
+            setTimeout(checkUrl, 100);
+        };
+
+        // Start monitoring
+        checkUrl();
+    },
+
+    // Reload data from localStorage
+    reloadData() {
+        // Reload categories
+        Categories.categories = JSON.parse(localStorage.getItem('categories')) || [];
+        
+        // Reload vocabulary
+        Vocabulary.vocabulary = JSON.parse(localStorage.getItem('vocabulary')) || [];
+        
+        // Reload quiz history
+        Quiz.quizHistory = JSON.parse(localStorage.getItem('quizHistory')) || [];
+        
+        // Reload learned words
+        Flashcard.learnedWords = JSON.parse(localStorage.getItem('learnedWords')) || [];
     },
 
     // Set up routing
     setupRouting() {
+        // Handle hash changes
         window.addEventListener('hashchange', () => {
+            const hash = window.location.hash.slice(1) || 'dashboard';
+            this.handleRoute(hash);
+        });
+
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', () => {
             const hash = window.location.hash.slice(1) || 'dashboard';
             this.handleRoute(hash);
         });
@@ -30,11 +74,19 @@ const App = {
 
     // Handle routing
     handleRoute(route) {
-        if (!Auth.currentUser && route !== 'login' && route !== 'register') {
-            Auth.showLoginForm();
+        // Prevent default hash behavior
+        if (route !== 'login' && route !== 'register' && !Auth.currentUser) {
+            window.location.href = '#login';
             return;
         }
 
+        // Update active navigation item
+        this.updateActiveNav(route);
+
+        // Reload data before showing page
+        this.reloadData();
+
+        // Handle route
         switch (route) {
             case 'dashboard':
                 this.showDashboard();
@@ -58,8 +110,27 @@ const App = {
                 Auth.showRegisterForm();
                 break;
             default:
-                this.showDashboard();
+                window.location.href = '#dashboard';
         }
+    },
+
+    // Update active navigation item
+    updateActiveNav(route) {
+        const navLinks = document.querySelectorAll('a[href^="#"]');
+        navLinks.forEach(link => {
+            if (link.getAttribute('href') === `#${route}`) {
+                link.classList.add('active');
+            } else {
+                link.classList.remove('active');
+            }
+        });
+    },
+
+    // Navigate to a route
+    navigate(route) {
+        window.location.href = `#${route}`;
+        console.log('Navigating to:', route);
+        window.location.reload();
     },
 
     // Show dashboard
