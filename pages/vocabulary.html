@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary - VocabApp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen flex flex-col">
+        <!-- Navigation (similar to categories.html) -->
+        
+        <!-- Main Content -->
+        <main class="flex-grow container mx-auto px-4 py-8">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold">Vocabulary Words</h1>
+                <button onclick="showAddModal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                    Add New Word
+                </button>
+            </div>
+
+            <!-- Category Filter -->
+            <div class="mb-4">
+                <select id="categoryFilter" class="w-full px-4 py-2 border rounded">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="mb-4">
+                <input type="text" id="vocabularySearch" 
+                       class="w-full px-4 py-2 border rounded" 
+                       placeholder="Search vocabulary...">
+            </div>
+
+            <!-- Vocabulary Table -->
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Word</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meaning</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vocabularyTableBody"></tbody>
+                </table>
+            </div>
+        </main>
+
+        <!-- Add/Edit Word Modal -->
+        <div class="modal fade" id="vocabularyModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalTitle">Add New Word</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="vocabularyForm">
+                            <input type="hidden" id="wordId">
+                            <div class="mb-3">
+                                <label class="form-label">Word</label>
+                                <input type="text" class="form-control" id="word" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Meaning</label>
+                                <textarea class="form-control" id="meaning" rows="3" required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Category</label>
+                                <select class="form-control" id="category" required>
+                                    <option value="">Select Category</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="saveWord()">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div class="modal fade" id="deleteModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Delete Word</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete this word?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let vocabulary = [];
+        let categories = [];
+        let wordToDelete = null;
+        const modal = new bootstrap.Modal(document.getElementById('vocabularyModal'));
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            loadCategories();
+            loadVocabulary();
+            setupEventListeners();
+        });
+
+        // Load categories
+        function loadCategories() {
+            categories = JSON.parse(localStorage.getItem('categories')) || [];
+            updateCategorySelects();
+        }
+
+        // Update category select elements
+        function updateCategorySelects() {
+            const filterSelect = document.getElementById('categoryFilter');
+            const modalSelect = document.getElementById('category');
+            
+            const categoryOptions = categories.map(category => 
+                `<option value="${category.id}">${category.name}</option>`
+            ).join('');
+
+            filterSelect.innerHTML = '<option value="">All Categories</option>' + categoryOptions;
+            modalSelect.innerHTML = '<option value="">Select Category</option>' + categoryOptions;
+        }
+
+        // Load vocabulary
+        function loadVocabulary() {
+            vocabulary = JSON.parse(localStorage.getItem('vocabulary')) || [];
+            renderVocabulary();
+        }
+
+        // Render vocabulary
+        function renderVocabulary() {
+            const tbody = document.getElementById('vocabularyTableBody');
+            tbody.innerHTML = vocabulary.map(word => {
+                const category = categories.find(c => c.id === parseInt(word.categoryId));
+                return `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">${word.word}</td>
+                        <td class="px-6 py-4">${word.meaning}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${category ? category.name : 'Uncategorized'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <button onclick="showEditModal(${word.id})" 
+                                    class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
+                            <button onclick="showDeleteModal(${word.id})" 
+                                    class="text-red-600 hover:text-red-900">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            document.getElementById('categoryFilter').addEventListener('change', filterVocabulary);
+            document.getElementById('vocabularySearch').addEventListener('input', searchVocabulary);
+        }
+
+        // Filter vocabulary by category
+        function filterVocabulary() {
+            const categoryId = document.getElementById('categoryFilter').value;
+            vocabulary = JSON.parse(localStorage.getItem('vocabulary')) || [];
+            
+            if (categoryId) {
+                vocabulary = vocabulary.filter(word => word.categoryId === parseInt(categoryId));
+            }
+            
+            renderVocabulary();
+        }
+
+        // Search vocabulary
+        function searchVocabulary(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            vocabulary = JSON.parse(localStorage.getItem('vocabulary')) || [];
+            
+            vocabulary = vocabulary.filter(word => 
+                word.word.toLowerCase().includes(searchTerm) ||
+                word.meaning.toLowerCase().includes(searchTerm)
+            );
+            
+            renderVocabulary();
+        }
+
+        // Show add modal
+        function showAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add New Word';
+            document.getElementById('vocabularyForm').reset();
+            document.getElementById('wordId').value = '';
+            modal.show();
+        }
+
+        // Show edit modal
+        function showEditModal(id) {
+            const word = vocabulary.find(w => w.id === id);
+            if (word) {
+                document.getElementById('modalTitle').textContent = 'Edit Word';
+                document.getElementById('wordId').value = word.id;
+                document.getElementById('word').value = word.word;
+                document.getElementById('meaning').value = word.meaning;
+                document.getElementById('category').value = word.categoryId;
+                modal.show();
+            }
+        }
+
+        // Show delete modal
+        function showDeleteModal(id) {
+            wordToDelete = id;
+            deleteModal.show();
+        }
+
+        // Save word
+        function saveWord() {
+            const id = document.getElementById('wordId').value;
+            const word = document.getElementById('word').value;
+            const meaning = document.getElementById('meaning').value;
+            const categoryId = document.getElementById('category').value;
+
+            if (!word || !meaning || !categoryId) {
+                alert('All fields are required');
+                return;
+            }
+
+            if (id) {
+                // Update existing word
+                const index = vocabulary.findIndex(w => w.id === parseInt(id));
+                if (index !== -1) {
+                    vocabulary[index] = { 
+                        ...vocabulary[index], 
+                        word, 
+                        meaning, 
+                        categoryId: parseInt(categoryId) 
+                    };
+                }
+            } else {
+                // Add new word
+                const newWord = {
+                    id: Date.now(),
+                    word,
+                    meaning,
+                    categoryId: parseInt(categoryId),
+                    createdAt: new Date().toISOString()
+                };
+                vocabulary.push(newWord);
+            }
+
+            localStorage.setItem('vocabulary', JSON.stringify(vocabulary));
+            modal.hide();
+            loadVocabulary();
+        }
+
+        // Confirm delete
+        function confirmDelete() {
+            if (wordToDelete) {
+                vocabulary = vocabulary.filter(w => w.id !== wordToDelete);
+                localStorage.setItem('vocabulary', JSON.stringify(vocabulary));
+                deleteModal.hide();
+                loadVocabulary();
+            }
+        }
+
+        // Auth functions (similar to categories.html)
+    </script>
+</body>
+</html> 
